@@ -168,6 +168,13 @@ if __name__ == "__main__":
         f.write(model_card)
 
     # Upload model to HF model hub
+    subprocess.run([
+        "git",
+        "lfs",
+        "track",
+        "*.pt",
+    ], check=True, cwd=args.model_dir)
+    # ^ for checkpoints
     subprocess.run(["git", "add", "."], check=True, cwd=args.model_dir)
     subprocess.run(["git", "commit", "-m", "commit model from SageMaker"], check=True, cwd=args.model_dir)
     subprocess.run(["git", "push"], check=True, cwd=args.model_dir)
