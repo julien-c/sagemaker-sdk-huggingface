@@ -52,6 +52,7 @@ RUN apt-get update \
     curl \
     emacs \
     git \
+    git-lfs \
     jq \
     libglib2.0-0 \
     libgl1-mesa-glx \

@@ -40,6 +40,7 @@ RUN apt-get update \
     curl \
     emacs \
     git \
+    git-lfs \
     wget \
     vim \
     build-essential \
