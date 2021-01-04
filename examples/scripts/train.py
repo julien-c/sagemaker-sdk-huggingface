@@ -48,11 +48,11 @@ if __name__ == "__main__":
     )
 
     # create model repo and clone it locally
-    subprocess.run(["pwd"], check=True)
+    subprocess.run(["pwd"], check=True) # = /opt/ml/code
     subprocess.run(["wget", "-O", "tarball.tar.gz", GIT_LFS_TARBALL], check=True)
     subprocess.run(["tar", "-xvzf", "tarball.tar.gz"], check=True)
     subprocess.run(["ls", "-al"], check=True)
-    subprocess.run("install.sh", shell=True)
+    subprocess.run(["bash", "install.sh"], check=True)
 
     subprocess.run("git --version".split(), check=True)
     subprocess.run("git lfs --version".split(), check=True)
