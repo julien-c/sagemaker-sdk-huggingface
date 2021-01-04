@@ -96,6 +96,7 @@ if __name__ == "__main__":
         token=args.huggingface_token,
         name=args.hub_repo_name
     )
+    repo_url = repo_url.replace("https://", f"https://user:{args.huggingface_token}@")
     subprocess.run("git lfs install".split(), check=True)
     subprocess.run([
         "git",
