@@ -1,12 +1,17 @@
 from transformers import AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers.hf_api import HfApi
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
 from datasets import load_from_disk
 import random
 import logging
 import sys
+import subprocess
 import argparse
 import os
 import torch
+
+
+GIT_LFS_TARBALL = "https://github.com/git-lfs/git-lfs/releases/download/v2.13.1/git-lfs-linux-amd64-v2.13.1.tar.gz"
 
 if __name__ == "__main__":
 
@@ -19,10 +24,14 @@ if __name__ == "__main__":
     parser.add_argument("--warmup_steps", type=int, default=500)
     parser.add_argument("--model_name", type=str)
     parser.add_argument("--learning_rate", type=str, default=5e-5)
+    parser.add_argument("--huggingface_token", type=str)
+    parser.add_argument("--hub_repo_name", type=str)
+    parser.add_argument("--hub_organization", type=str, default=None)
+    # ^ This will be built-in to Trainer but let's demo it here.
 
     # Data, model, and output directories
     parser.add_argument("--output-data-dir", type=str, default=os.environ["SM_OUTPUT_DATA_DIR"])
-    parser.add_argument("--model-dir", type=str, default=os.environ["SM_MODEL_DIR"])
+    parser.add_argument("--model_dir", type=str, default=os.environ["SM_MODEL_DIR"])
     parser.add_argument("--n_gpus", type=str, default=os.environ["SM_NUM_GPUS"])
     parser.add_argument("--training_dir", type=str, default=os.environ["SM_CHANNEL_TRAIN"])
     parser.add_argument("--test_dir", type=str, default=os.environ["SM_CHANNEL_TEST"])
@@ -37,6 +46,27 @@ if __name__ == "__main__":
         handlers=[logging.StreamHandler(sys.stdout)],
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     )
+
+    # create model repo and clone it locally
+    subprocess.run(["pwd"], check=True)
+    subprocess.run(["wget", "-O", "tarball.tar.gz", GIT_LFS_TARBALL], check=True)
+    subprocess.run(["tar", "-xvzf", "tarball.tar.gz"], check=True)
+    subprocess.run(["ls", "-al"], check=True)
+    subprocess.run("install.sh", shell=True)
+
+    subprocess.run("git --version".split(), check=True)
+    subprocess.run("git lfs --version".split(), check=True)
+    repo_url = HfApi().create_repo(
+        token=args.huggingface_token,
+        name=args.hub_repo_name
+    )
+    subprocess.run("git lfs install".split(), check=True)
+    subprocess.run([
+        "git",
+        "clone",
+        repo_url,
+        args.model_dir,
+    ], check=True)
 
     # load datasets
     train_dataset = load_from_disk(args.training_dir)
@@ -92,3 +122,7 @@ if __name__ == "__main__":
     # Saves the model to s3
     trainer.save_model(args.model_dir)
 
+    # Upload model to HF model hub
+    subprocess.run(["git", "add", "."], check=True, cwd=args.model_dir)
+    subprocess.run(["git", "commit", "-m", "commit model from SageMaker"], check=True, cwd=args.model_dir)
+    subprocess.run(["git", "push"], check=True, cwd=args.model_dir)
