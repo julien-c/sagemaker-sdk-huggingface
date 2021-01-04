@@ -13,6 +13,25 @@ import torch
 
 GIT_LFS_TARBALL = "https://github.com/git-lfs/git-lfs/releases/download/v2.13.1/git-lfs-linux-amd64-v2.13.1.tar.gz"
 
+MODEL_CARD_TEMPLATE = """
+---
+tags:
+- sagemaker
+datasets:
+- imdb
+---
+
+## {model_id}
+
+Trained from SageMaker HuggingFace extension.
+
+#### Eval
+
+| key | value |
+| --- | ----- |
+{eval_table}
+"""
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
@@ -53,9 +72,26 @@ if __name__ == "__main__":
     subprocess.run(["tar", "-xvzf", "tarball.tar.gz"], check=True)
     subprocess.run(["ls", "-al"], check=True)
     subprocess.run(["bash", "install.sh"], check=True)
+    # ^ remove this when lfs is installed inside the image
 
     subprocess.run("git --version".split(), check=True)
     subprocess.run("git lfs --version".split(), check=True)
+
+    subprocess.run([
+        "git",
+        "config",
+        "--global",
+        "user.email",
+        "sagemaker@huggingface.co",
+    ], check=True)
+    subprocess.run([
+        "git",
+        "config",
+        "--global",
+        "user.name",
+        "sagemaker",
+    ], check=True)
+
     repo_url = HfApi().create_repo(
         token=args.huggingface_token,
         name=args.hub_repo_name
@@ -114,13 +150,21 @@ if __name__ == "__main__":
     eval_result = trainer.evaluate(eval_dataset=test_dataset)
 
     # writes eval result to file which can be accessed later in s3 ouput
-    with open(os.path.join(args.output_data_dir, "eval_results.txt"), "w") as writer:
+    with open(os.path.join(args.model_dir, "eval_results.txt"), "w") as writer:
         print(f"***** Eval results *****")
         for key, value in sorted(eval_result.items()):
             writer.write(f"{key} = {value}\n")
 
     # Saves the model to s3
     trainer.save_model(args.model_dir)
+
+    # Generate model card (todo: add more data from Trainer)
+    model_card = MODEL_CARD_TEMPLATE.format(
+        model_id=args.hub_repo_name,
+        eval_table="\n".join(f"| {k} | {v} |" for k, v in eval_result.items())
+    )
+    with open(os.path.join(args.model_dir, "README.md"), "w") as f:
+        f.write(model_card)
 
     # Upload model to HF model hub
     subprocess.run(["git", "add", "."], check=True, cwd=args.model_dir)
